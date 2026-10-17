@@ -50,15 +50,17 @@ else
     /^## / { n++; f = sprintf("%s/sec%03d", dir, n) }
     n { print > f }
   ' "$tpl/CLAUDE.md"
+  eol=$'\n'
+  grep -q $'\r' CLAUDE.md && eol=$'\r\n'
   for sec in "$tmp"/sec*; do
     [ -e "$sec" ] || continue
     heading="$(head -n1 "$sec" | sed 's/[[:space:]]*$//')"
-    if ! grep -qixF -- "$heading" CLAUDE.md; then
+    if ! tr -d '\r' < CLAUDE.md | grep -qixF -- "$heading"; then
       # Ensure the file ends with a newline, then a blank separator line.
-      [ -z "$(tail -c1 CLAUDE.md)" ] || printf '\n' >> CLAUDE.md
-      printf '\n' >> CLAUDE.md
+      [ -z "$(tail -c1 CLAUDE.md)" ] || printf '%s' "$eol" >> CLAUDE.md
+      printf '%s' "$eol" >> CLAUDE.md
       # Drop trailing blank lines of the section, keep its text.
-      sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$sec" >> CLAUDE.md
+      sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$sec" | sed "s/\$/${eol%$'\n'}/" >> CLAUDE.md
     fi
   done
 fi

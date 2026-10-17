@@ -80,6 +80,21 @@ test_existing_claude_md_gets_only_missing_sections() {
   assert_eq "$a" "$b" "merge is idempotent"
 }
 
+test_crlf_claude_md_no_duplicate_section() {
+  local d a b
+  d=$(new_tmp)
+  printf '# Mine\r\n\r\n## Working Agreements\r\n\r\nMy rules.\r\n' > "$d/CLAUDE.md"
+  cp "$d/CLAUDE.md" "$d/orig"
+  bash "$S" "$d" >/dev/null
+  assert_eq "1" "$(tr -d '\r' < "$d/CLAUDE.md" | grep -ci '^## working agreements$')" "heading once"
+  assert_eq "1" "$(tr -d '\r' < "$d/CLAUDE.md" | grep -c '^## Project status doc$')" "status section once"
+  assert_eq "$(sha256sum < "$d/orig")" "$(head -c "$(stat -c %s "$d/orig")" "$d/CLAUDE.md" | sha256sum)" "original bytes kept as prefix"
+  assert_eq "0" "$(tail -n +7 "$d/CLAUDE.md" | grep -vc $'\r$')" "appended lines are CRLF"
+  rm "$d/orig"
+  a=$(snapshot "$d"); bash "$S" "$d" >/dev/null; b=$(snapshot "$d")
+  assert_eq "$a" "$b" "second run identical"
+}
+
 test_path_with_spaces_works() {
   local base d rc=0
   base=$(new_tmp)
