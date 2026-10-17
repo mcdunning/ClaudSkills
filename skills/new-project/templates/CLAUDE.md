@@ -8,7 +8,7 @@ Rules, preferences, and "remember this" items from the user go in the project fi
 
 ## Project status doc
 
-`docs/PROJECT_STATUS.md` is the read-first handoff for new sessions and engineers. After significant work (finishing a feature, merging a PR, resolving a major issue), rewrite it entirely. Never append a history log. Rules:
+`docs/PROJECT_STATUS.md` is the read-first handoff for new sessions and engineers. After significant work (finishing a feature, resolving a major issue), rewrite it entirely on the feature branch before opening the PR, so it lands with the change; never as a direct commit to `develop` after merging. Never append a history log. Rules:
 
 - Exactly three paragraphs: no headings, no lists, no more, no fewer.
 - Facts only: no assumptions, theories, or speculation about why something happened or what might be true. Verify against the code and the project's own analysis and test commands first.
@@ -27,3 +27,4 @@ Rules, preferences, and "remember this" items from the user go in the project fi
 - Commit freely on feature branches, following the steps in the plan.
 - When all plan steps are done, open a PR into the parent branch and notify the user.
 - After the user approves the PR, squash-merge it and delete the feature branch.
+- Use the start-feature / open-pr / merge-pr skills when installed; never merge locally into `develop` or `main`.

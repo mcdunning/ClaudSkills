@@ -27,11 +27,21 @@ test_claude_has_header_and_sections() {
 }
 
 test_claude_has_git_workflow_section() {
-  local p
-  assert_contains "$T/CLAUDE.md" "## Git workflow"
-  for p in "Never commit directly to main" "develop" "feature/" "squash" "approval"; do
-    assert_contains "$T/CLAUDE.md" "$p"
+  local f="$T/CLAUDE.md" l
+  assert_contains "$f" "## Git workflow"
+  for l in \
+    '- Never commit directly to main. `main` changes only by PR and a formal release.' \
+    '- `develop` is the running branch. Feature branches (`feature/<topic>`) branch off `develop` and merge back into it, squashed into one commit.' \
+    "- Every commit to \`main\` or \`develop\` needs the user's approval, each time." \
+    '- After the user approves the PR, squash-merge it and delete the feature branch.' \
+    '- Use the start-feature / open-pr / merge-pr skills when installed; never merge locally into `develop` or `main`.'; do
+    if grep -qxF -- "$l" "$f"; then echo "ok: line '$l'"; else _fail "missing exact line: $l"; fi
   done
+}
+
+test_status_rewrite_happens_on_feature_branch() {
+  assert_contains "$T/CLAUDE.md" "rewrite it entirely on the feature branch before opening the PR"
+  if grep -q "merging a PR" "$T/CLAUDE.md"; then _fail "status trigger still mentions merging a PR"; else echo "ok: no merging-a-PR trigger"; fi
 }
 
 test_no_stack_specific_text() {
@@ -53,6 +63,7 @@ test_status_is_three_paragraphs
 test_status_states_new_project
 test_claude_has_header_and_sections
 test_claude_has_git_workflow_section
+test_status_rewrite_happens_on_feature_branch
 test_no_stack_specific_text
 test_verification_sentence_generic
 finish
