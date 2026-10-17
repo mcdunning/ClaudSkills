@@ -11,10 +11,10 @@ Pushes the current `feature/*` branch and opens a pull request into `develop` wi
 
 ## Procedure
 
-1. Confirm every step of the plan is done and committed on the feature branch. Run the project's verification commands (tests, lint, build; whatever the project's CLAUDE.md or README names). If a step is unfinished or any check fails, stop and report what is missing or failing. Do not open the PR.
+1. Confirm every step of the plan is done and committed on the feature branch. Then, on the feature branch, rewrite `docs/PROJECT_STATUS.md` and fix any stale docs, following the project's `CLAUDE.md`, and commit the result. Only then run the project's verification commands (tests, lint, build; whatever the project's `CLAUDE.md` or README names). If a step is unfinished or any check fails, stop and report what is missing or failing. Do not open the PR. If no verification commands are named anywhere (`CLAUDE.md`, README), tell the user so, and write "no verification commands defined" in the PR body's verification section; never skip verification silently.
 2. Write the PR body to a temp file (for example with `mktemp`), in Markdown, containing:
    - a short summary of the change,
-   - how it was verified (the commands run and their results),
+   - how it was verified (the commands run and their results, or "no verification commands defined"),
    - a link or path to the plan and spec it implements.
 3. Choose a concise PR title that describes the change.
 4. Run `bash "<skill-base-dir>/scripts/open-pr.sh" "<title>" "<body-file>"`.
