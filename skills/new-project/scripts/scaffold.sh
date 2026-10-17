@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: scaffold.sh [target_dir]
 # Prints "empty" or "non-empty" as the first line (judged before anything is
-# created), then scaffolds git branches, docs/ and CLAUDE.md. Never modifies
+# created), optionally "created main from <ref>", then scaffolds git branches, docs/ and CLAUDE.md. Never modifies
 # any other existing file.
 set -euo pipefail
 
@@ -9,6 +9,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tpl="$script_dir/../templates"
 target="${1:-.}"
 cd "$target"
+
+# 0. Refuse a directory nested inside another git repo (scaffolding would modify the parent).
+if top="$(git rev-parse --show-toplevel 2>/dev/null)" && [ "$top" != "$(pwd -P)" ]; then
+  echo "scaffold: $(pwd -P) is inside the git repository at $top but is not its top level; refusing to scaffold" >&2
+  exit 1
+fi
 
 # 1. Judge emptiness first. README*, LICENSE*, .gitignore and .git do not count.
 state=empty
@@ -31,7 +37,11 @@ if ! git rev-parse --verify -q HEAD >/dev/null; then
       -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo scaffold@localhost)}" \
       commit -q --allow-empty -m "chore: initial commit"
 fi
-git show-ref --verify -q refs/heads/main || git branch main HEAD
+if ! git show-ref --verify -q refs/heads/main; then
+  from="$(git branch --show-current)"
+  git branch main HEAD
+  echo "created main from ${from:-HEAD}"
+fi
 git show-ref --verify -q refs/heads/develop || git branch develop main
 git checkout -q develop
 

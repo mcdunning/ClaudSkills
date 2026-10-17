@@ -14,7 +14,7 @@ Planning decides the stack for an empty directory; a scan discovers it for a non
 
 ## Procedure
 
-1. **Scaffold.** Run `bash "<skill-base-dir>/scripts/scaffold.sh"`. Read its first output line: `empty` or `non-empty`. This is judged before any file is created, so remember it for step 5. The script creates the git repo (`main` and `develop`, ending on `develop`), `docs/`, `docs/plans/`, `docs/specs/`, and copies `templates/CLAUDE.md` and `templates/PROJECT_STATUS.md` only where missing. Copy templates; do not retype them.
+1. **Scaffold.** Run `bash "<skill-base-dir>/scripts/scaffold.sh"`. If it exits non-zero it prints a one-line reason (for example the directory is inside another git repository but is not its top level); nothing was created. Relay the reason and ask the user how to proceed (for example a different directory); never push or publish a parent repository. Otherwise read its first output line: `empty` or `non-empty`. This is judged before any file is created, so remember it for step 5. The script creates the git repo (`main` and `develop`, ending on `develop`), `docs/`, `docs/plans/`, `docs/specs/`, and copies `templates/CLAUDE.md` and `templates/PROJECT_STATUS.md` only where missing. Copy templates; do not retype them.
 
 2. **Remote.** Ask whether a GitHub remote already exists or a new one should be made.
    - Existing: get the URL from the user and run `git remote add origin <url>`.

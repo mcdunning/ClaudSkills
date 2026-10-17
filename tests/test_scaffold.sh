@@ -134,6 +134,41 @@ test_existing_repo_with_commits_and_develop() {
   assert_eq "a" "$(cat "$d/a.txt")" "a.txt untouched"
 }
 
+test_refuses_subdir_of_parent_repo() {
+  local p d rc=0 out err before_br before_head before_files
+  p=$(new_tmp)
+  git -C "$p" init -q -b main
+  echo a > "$p/a.txt"; git -C "$p" add a.txt; git -C "$p" commit -q -m first
+  mkdir "$p/sub"
+  d="$p/sub"
+  before_br=$(git -C "$p" branch --list --format='%(refname:short)' | tr '\n' ' ')
+  before_head=$(git -C "$p" rev-parse HEAD)
+  before_files=$(cd "$p" && find . -path ./.git -prune -o -print | sort)
+  out=$(bash "$S" "$d" 2>"$p/err.txt") || rc=$?
+  err=$(cat "$p/err.txt"); rm "$p/err.txt"
+  before_files=$(printf '%s\n' "$before_files" | grep -v '^./err.txt$')
+  assert_eq "1" "$([ "$rc" -ne 0 ] && echo 1 || echo 0)" "non-zero exit"
+  assert_eq "" "$out" "nothing on stdout"
+  assert_eq "1" "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" "one-line reason"
+  assert_eq "$before_br" "$(git -C "$p" branch --list --format='%(refname:short)' | tr '\n' ' ')" "parent branches unchanged"
+  assert_eq "$before_head" "$(git -C "$p" rev-parse HEAD)" "parent HEAD unchanged"
+  assert_eq "main" "$(git -C "$p" branch --show-current)" "parent still on main"
+  assert_eq "$before_files" "$(cd "$p" && find . -path ./.git -prune -o -print | sort)" "no files created"
+  assert_eq "" "$(git -C "$p" status --porcelain)" "parent tree clean"
+}
+
+test_reports_main_created_from_ref() {
+  local d out
+  d=$(new_tmp)
+  git -C "$d" init -q -b trunk
+  echo a > "$d/a.txt"; git -C "$d" add a.txt; git -C "$d" commit -q -m first
+  out=$(bash "$S" "$d")
+  assert_eq "non-empty" "$(printf '%s\n' "$out" | sed -n 1p)" "line 1 contract intact"
+  assert_eq "created main from trunk" "$(printf '%s\n' "$out" | sed -n 2p)" "line 2 reports ref"
+  out=$(bash "$S" "$d")
+  assert_eq "1" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "second run prints only state line"
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
   echo "-- $t"; "$t"
 done
