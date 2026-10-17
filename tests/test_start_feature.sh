@@ -93,6 +93,41 @@ test_path_with_spaces() {
   assert_eq "0" "$rc" "works in path with spaces"
 }
 
+test_diverged_develop_restores_original_branch() {
+  local t; t=$(new_tmp); make_repo "$t/r" origin
+  git clone -q -b develop "$t/r.origin.git" "$t/other"
+  git -C "$t/other" commit -q --allow-empty -m upstream-change
+  git -C "$t/other" push -q origin develop
+  git -C "$t/r" commit -q --allow-empty -m local-only
+  git -C "$t/r" checkout -q main
+  local dev; dev=$(git -C "$t/r" rev-parse develop)
+  run "$t/r" "fresh" >/dev/null 2>&1; local rc=$?
+  assert_eq "1" "$([ $rc -ne 0 ] && echo 1 || echo 0)" "diverged develop refused"
+  assert_eq "main" "$(git -C "$t/r" branch --show-current)" "original branch restored"
+  assert_eq "" "$(git -C "$t/r" branch --list 'feature/*')" "no branch created"
+  assert_eq "$dev" "$(git -C "$t/r" rev-parse develop)" "develop untouched"
+}
+
+test_overlong_topic_refused_cleanly() {
+  local t; t=$(new_tmp); make_repo "$t/r"
+  git -C "$t/r" checkout -q main
+  local long; long=$(printf 'word %.0s' $(seq 1 40))
+  local err; err=$(run "$t/r" "$long" 2>&1 >/dev/null); local rc=$?
+  assert_eq "1" "$([ $rc -ne 0 ] && echo 1 || echo 0)" "overlong refused"
+  assert_eq "1" "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" "one-line reason"
+  assert_eq "main" "$(git -C "$t/r" branch --show-current)" "branch unchanged"
+  assert_eq "" "$(git -C "$t/r" branch --list 'feature/*')" "no branch created"
+  assert_eq "" "$(git -C "$t/r" status --porcelain)" "tree clean"
+}
+
+test_dirty_message_wording() {
+  local t; t=$(new_tmp); make_repo "$t/r"
+  echo x > "$t/r/f.txt"
+  local err; err=$(run "$t/r" "thing" 2>&1 >/dev/null)
+  printf '%s\n' "$err" > "$t/err.txt"
+  assert_contains "$t/err.txt" "commit or remove them first"
+}
+
 test_skill_frontmatter_and_script_path() {
   local S="$D/SKILL.md"
   assert_file "$S"
