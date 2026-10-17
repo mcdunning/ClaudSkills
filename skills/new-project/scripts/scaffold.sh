@@ -52,10 +52,12 @@ else
   ' "$tpl/CLAUDE.md"
   eol=$'\n'
   grep -q $'\r' CLAUDE.md && eol=$'\r\n'
+  # Normalized copy (no CR) so grep reads a file, not a pipe (avoids SIGPIPE under pipefail).
+  tr -d '\r' < CLAUDE.md > "$tmp/normalized"
   for sec in "$tmp"/sec*; do
     [ -e "$sec" ] || continue
     heading="$(head -n1 "$sec" | sed 's/[[:space:]]*$//')"
-    if ! tr -d '\r' < CLAUDE.md | grep -qixF -- "$heading"; then
+    if ! grep -qixF -- "$heading" "$tmp/normalized"; then
       # Ensure the file ends with a newline, then a blank separator line.
       [ -z "$(tail -c1 CLAUDE.md)" ] || printf '%s' "$eol" >> CLAUDE.md
       printf '%s' "$eol" >> CLAUDE.md

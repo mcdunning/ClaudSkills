@@ -95,6 +95,14 @@ test_crlf_claude_md_no_duplicate_section() {
   assert_eq "$a" "$b" "second run identical"
 }
 
+test_large_claude_md_heading_not_duplicated() {
+  local d
+  d=$(new_tmp)
+  { printf '## Working agreements\n\n'; yes 'filler line to make this file large enough' | head -n 8000; } > "$d/CLAUDE.md"
+  bash "$S" "$d" >/dev/null
+  assert_eq "1" "$(grep -ci '^## working agreements$' "$d/CLAUDE.md")" "heading once in large file"
+}
+
 test_path_with_spaces_works() {
   local base d rc=0
   base=$(new_tmp)
