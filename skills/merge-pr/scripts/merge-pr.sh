@@ -27,9 +27,11 @@ case "$head" in
   *) die "PR #$pr head '$head' is not a feature/* branch" ;;
 esac
 
-gh pr merge "$pr" --squash --delete-branch || die "gh pr merge failed for PR #$pr"
+# No --delete-branch: gh would force-delete the local branch itself, bypassing the tip guard below.
+# --match-head-commit makes gh refuse if the PR head moved since we read it.
+gh pr merge "$pr" --squash --match-head-commit "$oid" || die "gh pr merge failed for PR #$pr"
 
-# gh may already have switched branches or removed the local branch; both are fine.
+# gh may have switched branches; a missing local branch is fine.
 git checkout -q develop || die "PR #$pr merged, but could not check out develop"
 git pull -q --ff-only origin develop || die "PR #$pr merged, but could not fast-forward develop from origin"
 kept=""
@@ -42,5 +44,14 @@ if git show-ref --verify --quiet "refs/heads/$head"; then
     kept="kept local branch $head: it has commits that were not part of PR #$pr"
   fi
 fi
+# Remove the remote branch. A missing remote ref is fine; any other failure is only a warning.
+warn=""
+if ! del_out=$(LC_ALL=C git push origin --delete "$head" 2>&1); then
+  case "$del_out" in
+    *"remote ref does not exist"*) ;;
+    *) warn="warning: could not delete remote branch $head: $(printf '%s' "$del_out" | tail -n1)" ;;
+  esac
+fi
 echo "merged PR #$pr ($head) into develop; develop is up to date"
 [ -z "$kept" ] || echo "$kept"
+[ -z "$warn" ] || echo "$warn"

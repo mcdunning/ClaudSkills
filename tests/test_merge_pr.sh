@@ -34,8 +34,10 @@ setup() {
   T=$(new_tmp); make_repo "$T/r" origin
   git -C "$T/r" checkout -q -b feature/x
   git -C "$T/r" commit -q --allow-empty -m work
+  git -C "$T/r" push -q origin feature/x
   make_stub "$T"; export GH_LOG="$T/gh.log"; : > "$GH_LOG"
-  export GH_VIEW="develop feature/x $(git -C "$T/r" rev-parse feature/x)"
+  export GH_OID="$(git -C "$T/r" rev-parse feature/x)"
+  export GH_VIEW="develop feature/x $GH_OID"
   # Simulate the squash merge landing on origin/develop from another clone.
   export GH_MERGE_HOOK="git clone -q '$T/r.origin.git' '$T/other' && git -C '$T/other' checkout -q develop && git -C '$T/other' commit -q --allow-empty -m 'squash x' && git -C '$T/other' push -q origin develop && rm -rf '$T/other'"
 }
@@ -52,7 +54,31 @@ test_squash_merges_and_deletes_branch() {
   run "$T/r" 12 >/dev/null; local rc=$?
   assert_eq "0" "$rc" "exit 0"
   assert_eq "yes" "$(has_call 'pr view 12 --json baseRefName,headRefName,headRefOid --jq .baseRefName + " " + .headRefName + " " + .headRefOid')" "pr view call"
-  assert_eq "yes" "$(has_call 'pr merge 12 --squash --delete-branch')" "pr merge call"
+  assert_eq "yes" "$(has_call "pr merge 12 --squash --match-head-commit $GH_OID")" "pr merge call pairs flag and oid"
+  assert_eq "0" "$(calls | grep -c -- '--delete-branch' || true)" "no --delete-branch"
+  assert_eq "" "$(git -C "$T/r.origin.git" branch --list feature/x)" "remote branch removed from origin"
+}
+
+test_remote_branch_already_gone_is_fine() {
+  setup
+  git -C "$T/r" push -q origin --delete feature/x
+  local out; out=$(run "$T/r" 12 2>&1); local rc=$?
+  assert_eq "0" "$rc" "exit 0"
+  assert_eq "1" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "no warning, single line"
+  assert_eq "" "$(git -C "$T/r" branch --list feature/x)" "local branch gone"
+}
+
+test_remote_delete_failure_warns_after_merge() {
+  setup
+  printf '#!/bin/sh\necho nope >&2\nexit 1\n' > "$T/r.origin.git/hooks/pre-receive"
+  chmod +x "$T/r.origin.git/hooks/pre-receive"
+  local out; out=$(run "$T/r" 12 2>&1); local rc=$?
+  assert_eq "0" "$rc" "exit 0"
+  assert_eq "yes" "$(has_call "pr merge 12 --squash --match-head-commit $GH_OID")" "merged"
+  printf '%s\n' "$out" > "$T/out.txt"
+  assert_contains "$T/out.txt" "warning: could not delete remote branch feature/x"
+  assert_eq "" "$(git -C "$T/r" branch --list feature/x)" "local branch still deleted"
+  assert_eq "feature/x" "$(git -C "$T/r.origin.git" branch --list feature/x | tr -d ' *')" "remote branch remains"
 }
 
 test_deletes_local_branch_when_tip_matches_pr_head() {
@@ -70,7 +96,7 @@ test_keeps_local_branch_with_extra_commits() {
   git -C "$T/r" commit -q --allow-empty -m "after PR opened"
   local out; out=$(run "$T/r" 12 2>&1); local rc=$?
   assert_eq "0" "$rc" "exit 0"
-  assert_eq "yes" "$(has_call 'pr merge 12 --squash --delete-branch')" "merged"
+  assert_eq "yes" "$(has_call "pr merge 12 --squash --match-head-commit $GH_OID")" "merged"
   assert_eq "feature/x" "$(git -C "$T/r" branch --list feature/x | tr -d ' *')" "local branch kept"
   assert_eq "kept local branch feature/x: it has commits that were not part of PR #12" "$(printf '%s\n' "$out" | tail -n1)" "note printed"
   assert_eq "develop" "$(git -C "$T/r" branch --show-current)" "on develop"
@@ -83,7 +109,7 @@ test_missing_local_branch_is_not_an_error() {
   git -C "$T/r" branch -D feature/x -q
   run "$T/r" 12 >/dev/null; local rc=$?
   assert_eq "0" "$rc" "exit 0"
-  assert_eq "yes" "$(has_call 'pr merge 12 --squash --delete-branch')" "merged"
+  assert_eq "yes" "$(has_call "pr merge 12 --squash --match-head-commit $GH_OID")" "merged"
   assert_eq "develop" "$(git -C "$T/r" branch --show-current)" "on develop"
 }
 
