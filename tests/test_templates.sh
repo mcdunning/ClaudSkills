@@ -26,6 +26,14 @@ test_claude_has_header_and_sections() {
   assert_contains "$T/CLAUDE.md" "Exactly three paragraphs: no headings, no lists, no more, no fewer."
 }
 
+test_claude_has_git_workflow_section() {
+  local p
+  assert_contains "$T/CLAUDE.md" "## Git workflow"
+  for p in "Never commit directly to main" "develop" "feature/" "squash" "approval"; do
+    assert_contains "$T/CLAUDE.md" "$p"
+  done
+}
+
 test_no_stack_specific_text() {
   local f
   for f in CLAUDE.md PROJECT_STATUS.md; do
@@ -44,6 +52,7 @@ test_verification_sentence_generic() {
 test_status_is_three_paragraphs
 test_status_states_new_project
 test_claude_has_header_and_sections
+test_claude_has_git_workflow_section
 test_no_stack_specific_text
 test_verification_sentence_generic
 finish

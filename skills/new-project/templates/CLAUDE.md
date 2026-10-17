@@ -17,3 +17,13 @@ Rules, preferences, and "remember this" items from the user go in the project fi
 - Paragraph 2: files updated/created, mistakes to avoid, key insights/lessons learned.
 - Paragraph 3: current problems/errors/open items, and anything else needed to work productively (setup requirements, what's unverified, what's not started).
 - In the same change, check `README.md` and everything under `docs/` for stale mentions of a feature's old status and fix them without being asked. Exclude plans: implementation plans are point-in-time instructions, not living reference docs.
+
+## Git workflow
+
+- Never commit directly to main. `main` changes only by PR and a formal release.
+- `develop` is the running branch. Feature branches (`feature/<topic>`) branch off `develop` and merge back into it, squashed into one commit.
+- Every commit to `main` or `develop` needs the user's approval, each time.
+- Version bumps and doc updates may go straight to `develop` only during a release, with no PR, and still need the user's approval. Outside a release, all changes to `develop` go through a PR.
+- Commit freely on feature branches, following the steps in the plan.
+- When all plan steps are done, open a PR into the parent branch and notify the user.
+- After the user approves the PR, squash-merge it and delete the feature branch.
