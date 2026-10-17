@@ -7,22 +7,6 @@ SCRIPT="$D/scripts/start-feature.sh"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
-# make_repo <dir> [with_origin]: repo with main + develop, ends on develop.
-# With origin, a bare repo at <dir>.origin.git is created and both branches pushed.
-make_repo() {
-  local dir="$1" origin="${2:-}"
-  git init -q -b main "$dir"
-  git -C "$dir" commit -q --allow-empty -m init
-  git -C "$dir" checkout -q -b develop
-  git -C "$dir" commit -q --allow-empty -m dev
-  if [ -n "$origin" ]; then
-    git init -q --bare -b main "$dir.origin.git"
-    git -C "$dir" remote add origin "$dir.origin.git"
-    git -C "$dir" push -q origin main develop
-    git -C "$dir" fetch -q origin
-  fi
-}
-
 run() { (cd "$1" && shift && bash "$SCRIPT" "$@"); }
 
 test_creates_branch_from_develop() {

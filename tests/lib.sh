@@ -32,6 +32,22 @@ new_tmp() {
   printf '%s\n' "$d" >> "$_TMPLIST"
   printf '%s\n' "$d"
 }
+# make_repo <dir> [with_origin]: repo with main + develop, ends on develop.
+# With origin, a bare repo at <dir>.origin.git is created and both branches pushed.
+make_repo() {
+  local dir="$1" origin="${2:-}"
+  git init -q -b main "$dir"
+  git -C "$dir" commit -q --allow-empty -m init
+  git -C "$dir" checkout -q -b develop
+  git -C "$dir" commit -q --allow-empty -m dev
+  if [ -n "$origin" ]; then
+    git init -q --bare -b main "$dir.origin.git"
+    git -C "$dir" remote add origin "$dir.origin.git"
+    git -C "$dir" push -q origin main develop
+    git -C "$dir" fetch -q origin
+  fi
+}
+
 finish() {
   if [ "$FAILS" -ne 0 ]; then echo "$FAILS assertion(s) failed" >&2; exit 1; fi
   echo "all assertions passed"
