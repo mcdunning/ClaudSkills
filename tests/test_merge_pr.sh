@@ -35,7 +35,7 @@ setup() {
   git -C "$T/r" checkout -q -b feature/x
   git -C "$T/r" commit -q --allow-empty -m work
   make_stub "$T"; export GH_LOG="$T/gh.log"; : > "$GH_LOG"
-  export GH_VIEW="develop feature/x"
+  export GH_VIEW="develop feature/x $(git -C "$T/r" rev-parse feature/x)"
   # Simulate the squash merge landing on origin/develop from another clone.
   export GH_MERGE_HOOK="git clone -q '$T/r.origin.git' '$T/other' && git -C '$T/other' checkout -q develop && git -C '$T/other' commit -q --allow-empty -m 'squash x' && git -C '$T/other' push -q origin develop && rm -rf '$T/other'"
 }
@@ -51,11 +51,11 @@ test_squash_merges_and_deletes_branch() {
   setup
   run "$T/r" 12 >/dev/null; local rc=$?
   assert_eq "0" "$rc" "exit 0"
-  assert_eq "yes" "$(has_call 'pr view 12 --json baseRefName,headRefName --jq .baseRefName + " " + .headRefName')" "pr view call"
+  assert_eq "yes" "$(has_call 'pr view 12 --json baseRefName,headRefName,headRefOid --jq .baseRefName + " " + .headRefName + " " + .headRefOid')" "pr view call"
   assert_eq "yes" "$(has_call 'pr merge 12 --squash --delete-branch')" "pr merge call"
 }
 
-test_cleans_up_local_branch_and_updates_develop() {
+test_deletes_local_branch_when_tip_matches_pr_head() {
   setup
   run "$T/r" 12 >/dev/null; local rc=$?
   assert_eq "0" "$rc" "exit 0"
@@ -63,6 +63,18 @@ test_cleans_up_local_branch_and_updates_develop() {
   assert_eq "" "$(git -C "$T/r" branch --list feature/x)" "local branch gone"
   assert_eq "squash x" "$(git -C "$T/r" log -1 --format=%s develop)" "develop fast-forwarded"
   assert_eq "$(git -C "$T/r.origin.git" rev-parse develop)" "$(git -C "$T/r" rev-parse develop)" "develop matches origin"
+}
+
+test_keeps_local_branch_with_extra_commits() {
+  setup
+  git -C "$T/r" commit -q --allow-empty -m "after PR opened"
+  local out; out=$(run "$T/r" 12 2>&1); local rc=$?
+  assert_eq "0" "$rc" "exit 0"
+  assert_eq "yes" "$(has_call 'pr merge 12 --squash --delete-branch')" "merged"
+  assert_eq "feature/x" "$(git -C "$T/r" branch --list feature/x | tr -d ' *')" "local branch kept"
+  assert_eq "kept local branch feature/x: it has commits that were not part of PR #12" "$(printf '%s\n' "$out" | tail -n1)" "note printed"
+  assert_eq "develop" "$(git -C "$T/r" branch --show-current)" "on develop"
+  assert_eq "squash x" "$(git -C "$T/r" log -1 --format=%s develop)" "develop updated"
 }
 
 test_missing_local_branch_is_not_an_error() {
@@ -76,7 +88,7 @@ test_missing_local_branch_is_not_an_error() {
 }
 
 test_refuses_base_main() {
-  setup; export GH_VIEW="main feature/x"
+  setup; export GH_VIEW="main feature/x abc123"
   local err; err=$(run "$T/r" 12 2>&1 >/dev/null); local rc=$?
   assert_eq "1" "$(failed $rc)" "refused"
   assert_eq "0" "$(merge_calls)" "no pr merge call"
@@ -85,11 +97,11 @@ test_refuses_base_main() {
 }
 
 test_refuses_non_feature_head() {
-  setup; export GH_VIEW="develop hotfix/x"
+  setup; export GH_VIEW="develop hotfix/x abc123"
   run "$T/r" 12 >/dev/null 2>&1; local rc=$?
   assert_eq "1" "$(failed $rc)" "refused"
   assert_eq "0" "$(merge_calls)" "no pr merge call"
-  export GH_VIEW="develop feature/"
+  export GH_VIEW="develop feature/ abc123"
   run "$T/r" 12 >/dev/null 2>&1; rc=$?
   assert_eq "1" "$(failed $rc)" "empty feature name refused"
   assert_eq "0" "$(merge_calls)" "still no pr merge call"
