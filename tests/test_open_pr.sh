@@ -36,6 +36,8 @@ setup() {
 }
 
 run() { (cd "$1" && shift && PATH="$T/bin:$PATH" bash "$SCRIPT" "$@"); }
+# flag_value <flag>: the log line immediately after "ARG:<flag>".
+flag_value() { grep -A1 -x -- "ARG:$1" "$GH_LOG" | sed -n 2p; }
 failed() { [ "$1" -ne 0 ] && echo 1 || echo 0; }
 
 test_creates_pr_into_develop() {
@@ -45,12 +47,10 @@ test_creates_pr_into_develop() {
   assert_eq "https://github.com/o/r/pull/7" "$(printf '%s\n' "$out" | tail -n1)" "last line is URL"
   assert_contains "$GH_LOG" "ARG:pr"
   assert_contains "$GH_LOG" "ARG:create"
-  assert_contains "$GH_LOG" "ARG:--base"
-  assert_contains "$GH_LOG" "ARG:develop"
-  assert_contains "$GH_LOG" "ARG:--head"
-  assert_contains "$GH_LOG" "ARG:feature/x"
-  assert_contains "$GH_LOG" "ARG:My title"
-  assert_contains "$GH_LOG" "ARG:$T/body.md"
+  assert_eq "ARG:develop" "$(flag_value --base)" "--base develop"
+  assert_eq "ARG:feature/x" "$(flag_value --head)" "--head branch"
+  assert_eq "ARG:My title" "$(flag_value --title)" "--title value"
+  assert_eq "ARG:$T/body.md" "$(flag_value --body-file)" "--body-file path"
   assert_contains "$GH_LOG" "Verified: tests"
 }
 
